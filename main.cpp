@@ -1,18 +1,17 @@
 #include <SFML/Graphics.hpp>
-#include <iostream>
 #include <vector>
 
 using namespace sf;
 using namespace std;
 
-enum class direction {up, right, down, left, COUNT};
-enum class state {generate, display};
+enum class Direction {up, right, down, left};
+enum class State {generate, restart, display};
 
-direction turnClockwise(direction dir)
+Direction turnClockwise(Direction dir)
 {
 	int dirAsInteger = static_cast<int>(dir);
-	dirAsInteger = (dirAsInteger + 1) % static_cast<int>(direction::COUNT);
-	return static_cast<direction>(dirAsInteger);
+	dirAsInteger = (dirAsInteger + 1) % 4;
+	return static_cast<Direction>(dirAsInteger);
 }
 
 class DragonGenerator : public Drawable
@@ -28,30 +27,27 @@ public:
 	{
 		pixels.push_back(Vertex(Vector2f(static_cast<float>(x), static_cast<float>(y)), Color::White));
 	}
-	bool goInDirection(direction dir)
+	void moveInDirection(Direction dir)
 	{
 		int size = pixels.size();
-		
-		if (size == 0) return false;
-
-		int x = static_cast<int>(pixels[size - 1].position.x);
-		int y = static_cast<int>(pixels[size - 1].position.y);
+		if (size == 0) return;
+		int x = static_cast<int>(pixels.back().position.x);
+		int y = static_cast<int>(pixels.back().position.y);
 		switch (dir)
 		{
-		case direction::up:
+		case Direction::up:
 			push_back(x, y + 1);
 			break;
-		case direction::right:
+		case Direction::right:
 			push_back(x + 1, y);
 			break;
-		case direction::down:
+		case Direction::down:
 			push_back(x, y - 1);
 			break;
-		case direction::left:
+		case Direction::left:
 			push_back(x - 1, y);
 			break;
 		}
-		return true;
 	}
 	void clear()
 	{
@@ -67,64 +63,67 @@ int main()
 
 	RenderWindow window(vm, "Dragon Curve", Style::Default);
 
-	View view(FloatRect(0.f, 0.f, pixelWidth, pixelHeight));
-	view.setCenter(0.f, 0.f);
-	view.setSize(pixelWidth, -pixelHeight);
-	window.setView(view);
+	Font font;
+	if (!font.loadFromFile("fonts/DejaVuSansMono.ttf"))
+		font.loadFromFile("Dragon-Curve/fonts/DejaVuSansMono.ttf");
+	Text text;
+	text.setFont(font);
+	text.setFillColor(Color::White);
+	text.setCharacterSize(24);
+	text.setPosition(20, 20);
+	text.setString("Rightclick to start over.\nLeftclick to iterate the fractal.");
 
-	vector<direction> dir;
-	dir.push_back(direction::up);
-	dir.push_back(direction::right);
-
+	vector<Direction> pathVector;
 	DragonGenerator dragon;
-	dragon.push_back(0, 0);
-	dragon.goInDirection(dir[0]);
-	dragon.goInDirection(dir[1]);
 
-	state state = state::display;
+	State state = State::display;
 
 	while (window.isOpen())
 	{
 		Event event;
 		while (window.pollEvent(event))
 		{
-			if (event.type == Event::Closed) window.close();
-			if (Keyboard::isKeyPressed(Keyboard::Escape)) window.close();
+			if (event.type == Event::Closed)	
+				window.close();
+			if (Keyboard::isKeyPressed(Keyboard::Escape)) 
+				window.close();
 
 			if (event.type == Event::MouseButtonPressed)
 			{
-				if (event.mouseButton.button == Mouse::Left)
-				{
-					state = state::generate;
-				}
-				else if (event.mouseButton.button == Mouse::Right)
-				{
-					Vector2f coords = window.mapPixelToCoords(Mouse::getPosition(window));
-					dir.clear();
-					dir.push_back(direction::up);
-					dir.push_back(direction::right);
-					dragon.clear();
-					dragon.push_back(coords.x, coords.y);
-					dragon.goInDirection(dir[0]);
-					dragon.goInDirection(dir[1]);
-				}
+				if (event.mouseButton.button == Mouse::Left) 
+					state = State::generate;
+				else if (event.mouseButton.button == Mouse::Right) 
+					state = State::restart;
 			}
 		}
 
 		//update
-		if (state == state::generate)
+		if (state == State::generate)
 		{
-			for (int i = dir.size() - 1; i > -1; i--)
+			for (int i = pathVector.size() - 1; i > -1; i--) //go backwards along the path vector
 			{
-				dir.push_back(turnClockwise(dir[i]));
-				dragon.goInDirection(dir.back());
+				pathVector.push_back(turnClockwise(pathVector[i])); //rotate the direction by 90 deg clockwise, then uppend the new direction
+				dragon.moveInDirection(pathVector.back()); //then go in that new direction
 			}
-			state = state::display;
+			state = State::display;
 		}
-		
+		else if (state == State::restart)
+		{
+			Vector2i coords = Mouse::getPosition(window);
+			pathVector.clear();
+			pathVector.push_back(Direction::up);
+			pathVector.push_back(Direction::right);
+			dragon.clear();
+			dragon.push_back(coords.x, coords.y);
+			dragon.moveInDirection(pathVector[0]);
+			dragon.moveInDirection(pathVector[1]);
+			state = State::display;
+		}
+
 		//draw
 		window.clear();
 		window.draw(dragon);
+		window.draw(text);
 		window.display();
 	}
 
