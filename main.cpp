@@ -20,15 +20,19 @@ class DragonGenerator : public Drawable
 private:
 	vector<Vertex> pixels;
 public:
+	void draw(RenderTarget& target, RenderStates states) const
+	{
+		for (auto& v : pixels) target.draw(&v, 1, Points);
+	}
 	void push_back(int x, int y)
 	{
-		pixels.push_back(sf::Vertex(sf::Vector2f(static_cast<float>(x), static_cast<float>(y)), sf::Color::White));
+		pixels.push_back(Vertex(Vector2f(static_cast<float>(x), static_cast<float>(y)), Color::White));
 	}
-	void push_back(direction dir)
+	bool goInDirection(direction dir)
 	{
 		int size = pixels.size();
 		
-		if (size == 0) return;
+		if (size == 0) return false;
 
 		int x = static_cast<int>(pixels[size - 1].position.x);
 		int y = static_cast<int>(pixels[size - 1].position.y);
@@ -47,17 +51,11 @@ public:
 			push_back(x - 1, y);
 			break;
 		}
+		return true;
 	}
-	void draw(RenderTarget& target, RenderStates states) const
+	void clear()
 	{
-		for (auto& v : pixels) target.draw(&v, 1, sf::Points);
-	}
-	void list()
-	{
-		int size = pixels.size();
-		int x = static_cast<int>(pixels[size - 1].position.x);
-		int y = static_cast<int>(pixels[size - 1].position.y);
-		for (int i = 0; i < size; i++) cout << pixels[i].position.x << ' ';
+		pixels.clear();
 	}
 };
 
@@ -69,7 +67,7 @@ int main()
 
 	RenderWindow window(vm, "Dragon Curve", Style::Default);
 
-	sf::View view(sf::FloatRect(0.f, 0.f, pixelWidth, pixelHeight));
+	View view(FloatRect(0.f, 0.f, pixelWidth, pixelHeight));
 	view.setCenter(0.f, 0.f);
 	view.setSize(pixelWidth, -pixelHeight);
 	window.setView(view);
@@ -80,8 +78,8 @@ int main()
 
 	DragonGenerator dragon;
 	dragon.push_back(0, 0);
-	dragon.push_back(dir[0]);
-	dragon.push_back(dir[1]);
+	dragon.goInDirection(dir[0]);
+	dragon.goInDirection(dir[1]);
 
 	state state = state::display;
 
@@ -101,25 +99,32 @@ int main()
 				}
 				else if (event.mouseButton.button == Mouse::Right)
 				{
-
+					Vector2f coords = window.mapPixelToCoords(Mouse::getPosition(window));
+					dir.clear();
+					dir.push_back(direction::up);
+					dir.push_back(direction::right);
+					dragon.clear();
+					dragon.push_back(coords.x, coords.y);
+					dragon.goInDirection(dir[0]);
+					dragon.goInDirection(dir[1]);
 				}
 			}
 		}
 
+		//update
 		if (state == state::generate)
 		{
 			for (int i = dir.size() - 1; i > -1; i--)
 			{
 				dir.push_back(turnClockwise(dir[i]));
-				dragon.push_back(dir.back());
+				dragon.goInDirection(dir.back());
 			}
 			state = state::display;
 		}
-
+		
+		//draw
 		window.clear();
-
 		window.draw(dragon);
-
 		window.display();
 	}
 
