@@ -71,7 +71,7 @@ int main()
 	text.setFillColor(Color::White);
 	text.setCharacterSize(24);
 	text.setPosition(20, 20);
-	text.setString("Rightclick to start over.\nLeftclick to iterate the fractal.");
+	text.setString("Rightclick to start a new fractal.\nLeftclick to iterate the fractal.");
 
 	vector<Direction> pathVector;
 	DragonGenerator dragon;
